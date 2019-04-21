@@ -7,9 +7,8 @@ arcpy.env.overwriteOutput = True
 # parameters for tool
 In_Feat = arcpy.GetParameterAsText(0)
 Prj = arcpy.GetParameterAsText(1)
-Output = arcpy.GetParameterAsText(3)
 Grat_points = arcpy.GetParameterAsText(2)
-
+Output = arcpy.GetParameterAsText(3)
 
 # List of all projections
 Projections = [54032,
@@ -17,7 +16,7 @@ Projections = [54032,
 54028,
 54014,
 102034,
-54059,
+54052,
 54091,
 54008,
 54051,
@@ -42,11 +41,12 @@ ProjectionsInfo = ["\n\nProjection: Azimuthal Equidistant Projection\nIt is an a
 "\n\nProjection: Hotine Oblique Mercator\nAlso reffered to as the oblique cylindrical orthomorphic is an oblique rotation of the Mercator projection. Although many different types of this rotation exist, the purpose is to create a conformal area for obliquely shaped areas. Examples include the Alaskan panhandle or specific regions within Switzerland."]
 
 if Prj == "Random":
-    # random integer to select one of the shape projections
+    # random integer to select one of the projections
     x = random.randint(0, 11)
     arcpy.AddMessage(x)
     Prj = Projections[x]
 else:
+    #match the WKID to that string chosen by user in the tool
     x = 0
     for p in Str_pro:
         if Prj == p:
@@ -59,9 +59,6 @@ else:
 f = open(Output+".txt", "w+")
 
 
-# Area projection for Ohio
-
-
 # fuction to project
 arcpy.env.overwriteOutput = True
 
@@ -69,27 +66,27 @@ arcpy.env.overwriteOutput = True
 def ex_Project(In_Feat=In_Feat, Prj=Prj, Output=Output):
     fieldCount = 1
     # create a .prj with a dummy coordinate which can be changed
-    prjFile = open(In_Feat+".prj", "w+")
-    crs_string = 'GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137,298.257222101]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]'
-    prjFile.write(crs_string)
-    prjFile.close()
-
-    # using the dummy projection re-define and then project the data in the selected projection
-    scratch_name = arcpy.CreateScratchName(
-        "temp", data_type="Shapefile", workspace=arcpy.env.scratchFolder)
-
-    # using the dummy projection re-define and then project the data in the selected projection
-    sr = arcpy.SpatialReference(In_Feat+".prj")
-    topro = arcpy.Project_management(In_Feat, scratch_name, sr)
-    sr = arcpy.SpatialReference(Prj)
-    arcpy.Project_management(topro, Output, sr)
+    
+    #using the dummy projection re-define and then project the data in the selected projection
     desc = arcpy.Describe(In_Feat)
-
-    insertLyr = Output
-    aprx = arcpy.mp.ArcGISProject("CURRENT")
-    map1 = aprx.activeMap.name
-    aprxMap = aprx.listMaps(map1)[0]
-    aprxMap.addDataFromPath(insertLyr)
+    if desc.SpatialReference.name == "Unknown":
+        prj = open("temp.prj", "w+")    
+        crs_string = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.017453292519943295]]'
+        prj.write(crs_string)    
+        prj.close()
+        sr = arcpy.SpatialReference("temp.prj")
+        arcpy.DefineProjection_management(In_Feat,sr)
+    
+    sr = arcpy.SpatialReference(Prj)
+    arcpy.Project_management(In_Feat, Output, sr)
+    
+    
+    if Grat_points == "true":
+        insertLyr = Output
+        aprx = arcpy.mp.ArcGISProject("CURRENT")
+        map1 = aprx.activeMap.name
+        aprxMap = aprx.listMaps(map1)[0]
+        aprxMap.addDataFromPath(insertLyr)
 
     # useful information for the user placed in the .txt
     f.write("Your Filepath: "+Output+"\n"+100*'-'+"\nData Information: \n\nX,Y min: ({0}, {1})\nX, Y max: ({2}, {3})\n\nFields:\n".format(
@@ -106,8 +103,8 @@ def gratANDpoints():
         gratOut = Output[:-4]+"_Graticule.shp"
         pointOut = Output[:-4]+"_Points.shp"
     else:
-        gratOut = gratOut
-        pointOut = pointOut
+        gratOut = Output+"_Graticule"
+        pointOut = Output+"_Points"
 
     arcpy.CreateFishnet_management(gratOut,"-20037507.073813 -19971868.872273","-20037507.073813  19971868.884530","1000000","1000000","0","0","20037507.061556 19971868.884530","NO_LABELS","#","POLYGON")
     arcpy.DefineProjection_management(gratOut, 54004)
