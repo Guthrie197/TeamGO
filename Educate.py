@@ -36,7 +36,7 @@ Shape = [
 
 
  #Following lists hold information about the projections
-areaInfo = ["\nProjection: NAD 1983 (2011) Contiguous USA Albers \nThis is a conic projection with two standard parallels. This greatly reduces distortion compaired to one. \nNote: A standard parallel in conic projections is the place where the cone touches the globe and thus has the least amount of distortion.\nThis makes for little distortion in East to West data though North and South will be more distorted.\n This projection best preserves area though both shape and distance are preserved at the parallels."]
+areaInfo = ["\nProjection: NAD 1983 (2011) Contiguous USA Albers \nThis is a conic projection with two standard parallels. This greatly reduces distortion compared to using only one. \nNote: A standard parallel in conic projections is the place where the cone touches the globe and thus has the least amount of distortion.\nThis makes for little distortion in East to West data though North and South will be more distorted.\n This projection best preserves area though both shape and distance are preserved at the parallels."]
 
 distInfo = ["\nProjection: USA Contiguous Equidistant Conic \nAs the name inplies, this conic projection is best used for distance analysis. \nTo achieve this, circles of latitude are placed evenly at the meridians. In essence this results in perfectly square graticules at these points. \nThis allows for correct distance calculations at the standard parallels though area and shape are distorted.\nNote:Distance preservation is only between two points along the two standard parallels."]
 
@@ -48,24 +48,26 @@ shapeInfo = ["\nProjection: NAD 1983 (2011) UTM Zone 17N\nThis projection uses t
 
 #fuction to project 
 arcpy.env.overwriteOutput = True
+
 def ed_Project(In_Feat=In_Feat, Purp_List=Area[0], Output=Output):
     fieldCount = 1
     #create a .prj with a dummy coordinate which can be changed
-    prj = open(In_Feat+".prj", "w+")    
-    crs_string = 'GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137,298.257222101]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]'    
-    prj.write(crs_string)    
-    prj.close()
-
-    #using the dummy projection re-define and then project the data in the selected projection
-    scratch_name = arcpy.CreateScratchName("temp", data_type="Shapefile", workspace=arcpy.env.scratchFolder)
+    
+    
     
     #using the dummy projection re-define and then project the data in the selected projection
-    sr = arcpy.SpatialReference(In_Feat+".prj")
-    topro = arcpy.Project_management(In_Feat, scratch_name, sr)
-    sr = arcpy.SpatialReference(Purp_List)
-    arcpy.Project_management(topro, Output, sr)
     desc = arcpy.Describe(In_Feat)
-
+    if desc.SpatialReference.name == "Unknown":
+        prj = open("temp.prj", "w+")    
+        crs_string = 'GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137,298.257222101]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]'    
+        prj.write(crs_string)    
+        prj.close()
+        sr = arcpy.SpatialReference("temp.prj")
+        arcpy.DefineProjection_management(In_Feat,sr)
+    
+    sr = arcpy.SpatialReference(Purp_List)
+    arcpy.Project_management(In_Feat, Output, sr)
+    
     #useful information for the user placed in the .txt
     f.write("Your Filepath: "+Output+"\n"+100*'-'+"\nData Information: \n\nX,Y min: ({0},{1})\nX, Y max: ({2},{3})\n\nFields:\n".format(desc.extent.XMin, desc.extent.YMin,desc.extent.XMax, desc.extent.YMax))
     fields = arcpy.ListFields(In_Feat)
